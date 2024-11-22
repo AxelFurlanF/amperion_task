@@ -1,4 +1,4 @@
-name: Run Python Tests
+name: Run Python Tests on the Tomorrow folder
 
 on:
   push:
@@ -26,8 +26,10 @@ jobs:
       # Install uv and dependencies
       - name: Install dependencies using uv
         run: |
+          cd tomorrow_app
           pip install uv
-          uv install
+          uv sync --frozen
+
 
       # Run unittest discovery
       - name: Run tests
