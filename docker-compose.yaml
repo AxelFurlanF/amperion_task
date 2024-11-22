@@ -19,15 +19,12 @@ services:
 
   tomorrow:
     build:
-      context: .
-      dockerfile: Dockerfile_tomorrow
-    command: python -m tomorrow
+      context: tomorrow_app/
+      dockerfile: Dockerfile
     environment:
-      PGHOST: postgres
-      PGPORT: 5432
-      PGUSER: postgres
-      PGPASSWORD: postgres
-      PGDATABASE: tomorrow
+      POSTGRES_URI: "postgresql://postgres:postgres@postgres:5432/tomorrow"
+      TABLE_NAME: "weather_history_forecast"
+      SCHEMA: "bronze_data"
     volumes:
       - "${PWD}/blobs:/tmp/blobs"
     depends_on:
