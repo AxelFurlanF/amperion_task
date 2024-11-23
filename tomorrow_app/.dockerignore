@@ -1,1 +1,11 @@
 .venv
+**/*.pyc
+**/*.pyi
+**/*.pyx
+**/__pycache__
+.ipynb_checkpoints/*
+/notebooks/*
+/unused/*
+Dockerfile
+.DS_Store
+README.md

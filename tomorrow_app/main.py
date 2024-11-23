@@ -1,10 +1,11 @@
 import json
 import logging
 import os
+from typing import Dict, List, Optional
 
 import pandas as pd
 import requests
-from sqlalchemy import create_engine
+from sqlalchemy import MetaData, Table, create_engine, text
 
 COLUMNS = ["snapshot_time", "latitude",
            "longitude", "temperature", "wind_speed"]
@@ -13,8 +14,10 @@ QUERY_FIELDS = ["temperature", "windSpeed"]
 TABLE = "weather_history_forecast"
 SCHEMA = "bronze_data"
 
+DUMP_DIR = "/tmp"
 
-def get_locations():
+
+def get_locations() -> List[Dict[str, float]]:
     """
     Read the locations from the locations.json file
 
@@ -26,7 +29,7 @@ def get_locations():
     return locations["locations"]
 
 
-def transform_row(row, location):
+def transform_row(row: Dict, location: Dict[str, float]) -> Dict[str, float]:
     """
     Transform the row data
 
@@ -46,7 +49,13 @@ def transform_row(row, location):
     }
 
 
-def fetch_weather_data(api_key, locations, start_time="nowMinus1h", end_time="nowPlus6h", params={}):
+def fetch_weather_data(
+    api_key: str,
+    locations: List[Dict[str, float]],
+    start_time: str = "nowMinus1h",
+    end_time: str = "nowPlus6h",
+    params: Optional[Dict] = None,
+) -> List[Dict]:
     """
     Fetch the weather data from the Tomorrow.io API
 
@@ -87,10 +96,17 @@ def fetch_weather_data(api_key, locations, start_time="nowMinus1h", end_time="no
             row = transform_row(timeline, location)
             rows.append(row)
 
+        # TODO: remove this break
+        # break
+
     return rows
 
 
-def get_history_and_forecast(api_key, locations, snapshot_time=None):
+def get_history_and_forecast(
+    api_key: str,
+    locations: List[Dict[str, float]],
+    snapshot_time: Optional[str] = None,
+) -> pd.DataFrame:
     """
     Get the forecast and history data from the Tomorrow.io API
 
@@ -121,12 +137,23 @@ def get_history_and_forecast(api_key, locations, snapshot_time=None):
         start_time=start_time or "nowMinus1h",
         end_time=end_time or "nowPlus5d")
     final_df = pd.DataFrame(rows, columns=COLUMNS)
+
+    final_df["snapshot_time"] = pd.to_datetime(final_df["snapshot_time"])
+    final_df["latitude"] = final_df["latitude"].astype(float)
+    final_df["longitude"] = final_df["longitude"].astype(float)
+
     return final_df
 
 
-def upsert_to_postgres(df, table_name, schema, db_url, pk_cols):
+def upsert_to_postgres(
+    df: pd.DataFrame,
+    table_name: str,
+    schema: str,
+    db_url: str,
+    pk_cols: List[str],
+) -> None:
     """
-    Perform an UPSERT (insert or update) of a Pandas DataFrame into a PostgreSQL table.
+    Perform an UPSERT (insert or update) of a Pandas DataFrame into a PostgreSQL table using MERGE.
 
     :param df: Pandas DataFrame to be upserted.
     :param table_name: Name of the table in the database.
@@ -138,24 +165,48 @@ def upsert_to_postgres(df, table_name, schema, db_url, pk_cols):
     temp_table = f"{schema}.temp_{table_name}"
 
     with engine.connect() as conn:
+
+        metadata = MetaData()
+        target_table = Table(
+            f"{table_name}",
+            metadata,
+            schema=schema,
+            autoload_with=engine
+        )
+
+        # Map the target table's column types dynamically
+        dtype_mapping = {col.name: col.type for col in target_table.columns}
+
         # Save df to temp table
         df.to_sql(temp_table.split(
-            '.')[-1], engine, schema=schema, if_exists='replace', index=False)
+            '.')[-1], engine, schema=schema, if_exists='replace', index=False, dtype=dtype_mapping)
 
-        # Use SQL for UPSERT
-        conflict_cols = ", ".join(pk_cols)
+        # Prepare the columns and values for the MERGE query
+        merge_conditions = " AND ".join(
+            [f"target.{col} = source.{col}" for col in pk_cols]
+        )
         update_set = ", ".join(
-            [f"{col}=EXCLUDED.{col}" for col in df.columns if col not in pk_cols])
+            [f"{col} = source.{col}" for col in df.columns if col not in pk_cols]
+        )
+        insert_values = ", ".join(
+            [f"source.{col}" for col in df.columns]
+        )
 
-        upsert_query = f"""
-        INSERT INTO {schema}.{table_name} ({', '.join(df.columns)})
-        SELECT * FROM {temp_table}
-        ON CONFLICT ({conflict_cols}) DO UPDATE
-        SET {update_set};
-        """
-        conn.execute(upsert_query)
+        # Construct the MERGE query
+        merge_query = text(f"""
+        MERGE INTO {schema}.{table_name} AS target
+        USING {temp_table} AS source
+        ON {merge_conditions}
+        WHEN MATCHED THEN
+            UPDATE SET {update_set}
+        WHEN NOT MATCHED THEN
+            INSERT ({', '.join(df.columns)})
+            VALUES ({insert_values});
+        """)
 
-        conn.execute(f"DROP TABLE IF EXISTS {temp_table}")
+        # Execute the MERGE query
+        conn.execute(merge_query)
+        conn.commit()
 
     logging.info(f"Data upserted into {schema}.{table_name} successfully.")
 
@@ -168,7 +219,7 @@ if __name__ == '__main__':
     weather_df = get_history_and_forecast(api_key, locations, snapshot_time)
 
     # Save the weather data to a parquet file
-    weather_df.to_parquet("data/weather_data.parquet")
+    weather_df.to_parquet(f"{DUMP_DIR}/weather_data.parquet", index=False)
 
     # Load the data to the PostgreSQL database
     postgres_uri = os.environ.get("POSTGRES_URI")

@@ -10,7 +10,6 @@ services:
       POSTGRES_DB: tomorrow
     volumes:
       - "${PWD}/scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql"
-      - "pgdata:/var/lib/postgresql/data"
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}" ]
       interval: 1s
@@ -25,30 +24,27 @@ services:
       POSTGRES_URI: "postgresql://postgres:postgres@postgres:5432/tomorrow"
       TABLE_NAME: "weather_history_forecast"
       SCHEMA: "bronze_data"
+      SNAPSHOT_TIME: $SNAPSHOT_TIME
+    env_file:
+      - .env
     volumes:
-      - "${PWD}/blobs:/tmp/blobs"
+      - "${PWD}/tomorrow_app/data:/tmp"
+      - "${PWD}/tomorrow_app:/app"
     depends_on:
       postgres:
         condition: service_healthy
 
   jupyter:
     build:
-      context: .
+      context: jupyter/
       dockerfile: Dockerfile
     command: jupyter notebook --ip 0.0.0.0 --NotebookApp.token='' --NotebookApp.password='' --allow-root
     ports:
       - "8888:8888"
     environment:
-      PGHOST: postgres
-      PGPORT: 5432
-      PGUSER: postgres
-      PGPASSWORD: postgres
-      PGDATABASE: tomorrow
+      POSTGRES_URI: "postgresql://postgres:postgres@postgres:5432/tomorrow"
     volumes:
-      - "${PWD}/analysis.ipynb:/app/analysis.ipynb"
+      - "${PWD}/analysis.ipynb:/home/jovyan/work/analysis.ipynb"
     depends_on:
       postgres:
         condition: service_healthy
-
-volumes:
-  pgdata:
