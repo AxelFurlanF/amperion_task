@@ -54,7 +54,7 @@ def fetch_weather_data(
     locations: List[Dict[str, float]],
     start_time: str = "nowMinus1h",
     end_time: str = "nowPlus6h",
-    params: Optional[Dict] = None,
+    params: Optional[Dict] = {},
 ) -> List[Dict]:
     """
     Fetch the weather data from the Tomorrow.io API
