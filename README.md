@@ -9,7 +9,7 @@ This project scrapes the Tomorrow IO API for weather forecasts and recent weathe
 - Provides a Jupyter notebook for data visualization
 
 ## Extra Features
-- CI/CD using Github Actions
+- CI/CD using Github Actions for unit testing and linting
 - Unit testing on `tomorrow_app/tests`, you can see working tests in the Actions section of this repo.
 - Dependency installation using `uv`. A new lightweight and fast package manager.
 
@@ -24,6 +24,8 @@ For this project, I used almost the same skeleton that was provided in the assig
 - Jupyter for the notebook
 - Unit testing with `unittest`
 - Postgres 16
+- Github Actions for CI/CD
+- `flake8` for linting
 
 
 I also assume that the following phrase:
