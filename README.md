@@ -10,11 +10,23 @@ This project scrapes the Tomorrow IO API for weather forecasts and recent weathe
 
 ## Extra Features
 - CI/CD using Github Actions
-- Unit testing on `tomorrow_app/tests`
+- Unit testing on `tomorrow_app/tests`, you can see working tests in the Actions section of this repo.
 - Dependency installation using `uv`. A new lightweight and fast package manager.
 
 ## Assumptions
-I assume that the following phrase:
+I base this project to be as simple and complete as it could be for the amount of data it deals with. In the `Considerations` section, I advise what changes need to be done in order to move this solution into a decent production-ready solution.
+
+For this project, I used almost the same skeleton that was provided in the assignment itself. I used:
+- Python 3.10
+- `pandas`
+- `uv` for package management
+- Docker and docker-compose using Dockerhub base images
+- Jupyter for the notebook
+- Unit testing with `unittest`
+- Postgres 16
+
+
+I also assume that the following phrase:
 > The forecasts should be scraped hourly for each location on the list,
 
 means that the timesteps parameter of the tomorrow API has to be set to `1h`. The other interpretation that this could have is that I also need to setup a system to run this process in an hourly fashion. For this, I explain in the section below that an Airflow setup (or similar) should be included in the solution. But given that having to wait for an airflow setup to build and deploy locally is probably a pain for the person testing this solution, I decided to leave it out.

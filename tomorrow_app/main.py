@@ -70,7 +70,7 @@ def fetch_weather_data(
     list: A list of dictionaries containing the weather data
     """
     rows = []
-    base_url = f"https://api.tomorrow.io/v4/timelines"
+    base_url = "https://api.tomorrow.io/v4/timelines"
 
     for location in locations:
         s_location = f"{location['lat']}, {location['lon']}"
